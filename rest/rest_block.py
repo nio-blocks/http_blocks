@@ -144,7 +144,7 @@ class RESTPolling(Block):
         """
         pass
 
-    def _paging(self, paging):
+    def _paging(self):
         """ This can be overridden in user-defined blocks.
 
         """
