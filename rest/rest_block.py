@@ -29,7 +29,10 @@ class RESTPolling(Block):
 
     def __init__(self):
         super().__init__()
-        self._url = None
+        self._endpoints = 1
+        self._urls = [None]
+        self._paging_urls = [None]
+        self._idx = 0
         self._paging_field = None
         self._auth = None
         self._poll_job = None
@@ -68,11 +71,14 @@ class RESTPolling(Block):
 
         """
         self._prepare_url(paging)
+        url = self._paging_urls[self._idx] or \
+              self._urls[self._idx]
+
         headers = {"Content-type": "application/json"}
         self._logger.debug("%s: %s" %
-                           ("Paging" if paging else "Polling", self._url))
-
-        resp = requests.get(self._url, headers=headers)
+                           ("Paging" if paging else "Polling", url))
+        
+        resp = requests.get(url, headers=headers)
         status = resp.status_code
 
         if resp.status_code != 200:
@@ -105,11 +111,12 @@ class RESTPolling(Block):
                         self.polling_interval,
                         True
                     )
+                    self._idx = (self._idx + 1) % len(self._urls)
+                    self._logger.debug("Updating index to %d" % self._idx)
             except Exception as e:
                 self._logger.error(
                     "Error while processing polling response: %s" % e
                 )
-
             
     def _authenticate(self):
         """ This should be overridden in user-defined blocks.
