@@ -14,7 +14,6 @@ from nio.modules.scheduler.imports import Job
 from nio.modules.threading.imports import Lock
 
 
-@Discoverable(DiscoverableType.block)
 class RESTPolling(Block):
     
     """ A base class for blocks that poll restful web services.
