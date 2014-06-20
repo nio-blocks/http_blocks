@@ -7,6 +7,7 @@ from nio.common.discovery import Discoverable, DiscoverableType
 from nio.metadata.properties.timedelta import TimeDeltaProperty
 from nio.metadata.properties.list import ListProperty
 from nio.metadata.properties.object import ObjectProperty
+from nio.metadata.properties.int import IntProperty
 from nio.modules.scheduler.imports import Job
 from nio.modules.threading.imports import Lock
 
@@ -19,6 +20,7 @@ class RESTPolling(Block):
     polling_interval = TimeDeltaProperty()
     retry_interval = TimeDeltaProperty()
     queries = ListProperty(str)
+    retry_limit = IntProperty(default=1)
 
     def __init__(self):
         super().__init__()
@@ -37,6 +39,7 @@ class RESTPolling(Block):
         self._curr_fresh = None
         self._curr_stale = None
         self._poll_lock = Lock()
+        self._retry_count = 0
 
     def configure(self, context):
         super().configure(context)
@@ -81,7 +84,17 @@ class RESTPolling(Block):
         self._logger.debug("%s: %s" %
                            ("Paging" if paging else "Polling", url))
         
-        resp = requests.get(url, headers=headers)
+        # Requests won't generally throw exceptions, but this provides a
+        # bit of convenience for the block developer.
+        try:
+            resp = requests.get(url, headers=headers)
+        except Exception as e:
+            self._logger.error("GET request failed, details: %s" % e)
+        
+            # terminate the polling thread. this exception probably
+            # indicates incorrect code in the user-defined block.
+            return
+            
         status = resp.status_code
         self.etag = self.etag if paging \
                      else resp.headers.get('ETag')
@@ -97,12 +110,12 @@ class RESTPolling(Block):
             self._authenticate()
             self._poll_lock.release()
             self._retry_poll(paging)
-            self._update_retry_interval()
         else:
             
             # cancel the retry job if we were in a retry cycle
             self._retry_job = None
             self.retry_interval = self._init_retry_interval
+            self._retry_count = 0
 
             # process the Response object and initiate paging if necessary
             try:
@@ -192,12 +205,16 @@ class RESTPolling(Block):
         if self._poll_job is not None:
             self._poll_job.cancel()
             self._poll_job = None
-        self._retry_job = Job(
-            self.poll,
-            self.retry_interval,
-            False,
-            paging=paging
-        )
+        if self._retry_count < self.retry_limit:
+            self._logger.debug("Retrying the polling job...")
+            self._retry_count += 1
+            self._retry_job = Job(
+                self.poll,
+                self.retry_interval,
+                False,
+                paging=paging
+            )
+            self._update_retry_interval()
 
     def update_freshness(self, posts):
         """ Bookkeeping for the state of the current query's polling.
