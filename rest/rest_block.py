@@ -93,6 +93,7 @@ class RESTPolling(Block):
         
             # terminate the polling thread. this exception probably
             # indicates incorrect code in the user-defined block.
+            self._poll_lock.release()
             return
             
         status = resp.status_code
@@ -215,6 +216,8 @@ class RESTPolling(Block):
                 paging=paging
             )
             self._update_retry_interval()
+        else:
+            self._logger.error("Out of retries. Aborting.")
 
     def update_freshness(self, posts):
         """ Bookkeeping for the state of the current query's polling.
