@@ -5,9 +5,6 @@ from urllib.request import quote
 from nio.common.block.base import Block
 from nio.common.discovery import Discoverable, DiscoverableType
 from nio.metadata.properties.timedelta import TimeDeltaProperty
-from nio.metadata.properties.holder import PropertyHolder
-from nio.metadata.properties.string import StringProperty
-from nio.metadata.properties.int import IntProperty
 from nio.metadata.properties.list import ListProperty
 from nio.metadata.properties.object import ObjectProperty
 from nio.modules.scheduler.imports import Job
@@ -21,10 +18,7 @@ class RESTPolling(Block):
     """
     polling_interval = TimeDeltaProperty()
     retry_interval = TimeDeltaProperty()
-    limit = IntProperty(default=10)
     queries = ListProperty(str)
-    lookback = TimeDeltaProperty()
-
 
     def __init__(self):
         super().__init__()
@@ -51,8 +45,6 @@ class RESTPolling(Block):
         self._n_queries = len(self.queries)
         self._etags *= self._n_queries
         self._modifieds *= self._n_queries
-        lb = self._unix_time(datetime.utcnow() - self.lookback)
-        self._freshest = [lb] * self._n_queries
         self._prev_freshest *= self._n_queries
         self._prev_stalest *= self._n_queries
 
