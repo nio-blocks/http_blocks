@@ -4,8 +4,6 @@ from http_blocks.rest.rest_block import RESTPolling
 from nio.util.support.block_test_case import NIOBlockTestCase
 from nio.modules.threading.imports import Event
 
-import inspect
-print(inspect.getfile(RESTPolling))
 
 class RESTBlock(RESTPolling):
     
@@ -25,10 +23,7 @@ class RESTRetry(RESTPolling):
     def poll(self, paging=False):
         self._poll_events[0].set()
         self._poll_events = self._poll_events[1:]
-        try:
-            super().poll(paging)
-        except Exception as e:
-            print(e)
+        super().poll(paging)
 
 class TestRESTPolling(NIOBlockTestCase):
     
@@ -43,7 +38,10 @@ class TestRESTPolling(NIOBlockTestCase):
             },
             "retry_interval": {
                 "seconds": 1
-            }
+            },
+            "queries": [
+                "foobar"
+            ]
         })
         blk.start()
         e.wait(2)
@@ -66,7 +64,10 @@ class TestRESTPolling(NIOBlockTestCase):
             },
             "retry_interval": {
                 "seconds": 1
-            }
+            },
+            "queries": [
+                "foobar"
+            ]
         })
         blk.start()
         e.wait(2)
@@ -91,7 +92,10 @@ class TestRESTPolling(NIOBlockTestCase):
             },
             "retry_interval": {
                 "seconds": 1
-            }
+            },
+            "queries": [
+                "foobar"
+            ]
         })
         blk.start()
         es[1].wait(2)
