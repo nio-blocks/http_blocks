@@ -40,12 +40,13 @@ class RESTPolling(Block):
         self._curr_stale = None
         self._poll_lock = Lock()
         self._retry_count = 0
+        self._auth = None
 
     def configure(self, context):
         super().configure(context)
         self._authenticate()
         self._init_retry_interval = self.retry_interval
-        self._n_queries = len(self.queries)
+        self._n_queries = len(self.queries) or 1
         self._etags *= self._n_queries
         self._modifieds *= self._n_queries
         self._prev_freshest *= self._n_queries
@@ -87,7 +88,11 @@ class RESTPolling(Block):
         # Requests won't generally throw exceptions, but this provides a
         # bit of convenience for the block developer.
         try:
-            resp = requests.get(url, headers=headers)
+            resp = None
+            if self._auth is not None:
+                resp = requests.get(url, headers=headers, auth=self._auth)
+            else:
+                resp = requests.get(url, headers=headers)
         except Exception as e:
             self._logger.error("GET request failed, details: %s" % e)
         
@@ -106,7 +111,6 @@ class RESTPolling(Block):
             self._logger.error(
                 "Polling request returned status %d" % status
             )
-
             self._logger.debug("Attempting to re-authenticate.")
             self._authenticate()
             self._poll_lock.release()
@@ -134,8 +138,9 @@ class RESTPolling(Block):
                         True
                     )
                     self._idx = (self._idx + 1) % self._n_queries
-                    self._logger.debug(
-                        "Preparing to query for: %s" % self.current_query)
+                    if self.queries:
+                        self._logger.debug(
+                            "Preparing to query for: %s" % self.current_query)
                     
 
             except Exception as e:
