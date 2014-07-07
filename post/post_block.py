@@ -1,3 +1,4 @@
+import json
 from nio.common.block.base import Block
 from nio.common.signal.base import Signal
 from nio.common.discovery import Discoverable, DiscoverableType
@@ -9,17 +10,14 @@ from nio.modules.web.imports import WebEngine, RESTHandler
 
 class BuildSignal(RESTHandler):
     def __init__(self, notifier):
+        super().__init__('/')
         self.notify = notifier
-        self.signals = []
 
     def on_post(self, identifier, body, params):
-        raw_signals = json.loads(body)
-        if not isinstance(raw_signals, list):
-            raw_signals = [raw_signals]
-
-        self.signals = [Signal(s) for s in raw_signals]
-        self.notify(self.signals)
-        self.signals = []
+        if not isinstance(body, list):
+            body = [body]
+        signals = [Signal(s) for s in body]
+        self.notify(signals)
 
 
 @DependsOn("nio.modules.web", "1.0.0")
@@ -40,5 +38,4 @@ class PostSignal(Block):
                                         {'socket_port': self.port})
         self._server.add_handler(BuildSignal(self.notify_signals))
         context.hooks.attach('after_blocks_start', WebEngine.start)
-        context.hooks.attach('after_blocks_stop', WebEngine.stop)
 
