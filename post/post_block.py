@@ -9,15 +9,18 @@ from nio.modules.web.imports import WebEngine, RESTHandler
 
 
 class BuildSignal(RESTHandler):
-    def __init__(self, notifier):
+    def __init__(self, notifier, logger):
         super().__init__('/')
         self.notify = notifier
+        self._logger = logger
 
     def on_post(self, identifier, body, params):
-        if not isinstance(body, list):
-            body = [body]
-        signals = [Signal(s) for s in body]
-        self.notify(signals)
+        if isinstance(body, list) or isinstance(body, dict):
+            body = body if isinstance(body, list) else [body]
+            signals = [Signal(s) for s in body]
+            self.notify(signals)
+        else:
+            self._logger.error("Invalid JSON in PostSignal request body")
 
 
 @DependsOn("nio.modules.web", "1.0.0")
@@ -38,6 +41,7 @@ class PostSignal(Block):
         self._server = WebEngine.create(self.endpoint, 
                                         {'socket_host': self.host,
                                          'socket_port': self.port})
-        self._server.add_handler(BuildSignal(self.notify_signals))
+        self._server.add_handler(BuildSignal(self.notify_signals,
+                                             self._logger))
         context.hooks.attach('after_blocks_start', WebEngine.start)
 
