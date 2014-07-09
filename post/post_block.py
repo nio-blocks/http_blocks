@@ -24,6 +24,7 @@ class BuildSignal(RESTHandler):
 @Discoverable(DiscoverableType.block)
 class PostSignal(Block):
     
+    host = StringProperty(name='Host', default='127.0.0.1')
     port = IntProperty(name='Port', default=8182)
     endpoint = StringProperty(name='Endpoint', default='')
 
@@ -35,7 +36,8 @@ class PostSignal(Block):
     def configure(self, context):
         super().configure(context)
         self._server = WebEngine.create(self.endpoint, 
-                                        {'socket_port': self.port})
+                                        {'socket_host': self.host,
+                                         'socket_port': self.port})
         self._server.add_handler(BuildSignal(self.notify_signals))
         context.hooks.attach('after_blocks_start', WebEngine.start)
 
