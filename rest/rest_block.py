@@ -17,10 +17,10 @@ class RESTPolling(Block):
     """ A base class for blocks that poll restful web services.
 
     """
-    polling_interval = TimeDeltaProperty()
-    retry_interval = TimeDeltaProperty()
-    queries = ListProperty(str)
-    retry_limit = IntProperty(default=1)
+    polling_interval = TimeDeltaProperty(title='Polling Interval')
+    retry_interval = TimeDeltaProperty(title='Retry Interval')
+    queries = ListProperty(str, title='Query Strings')
+    retry_limit = IntProperty(title='Retry Limit', default=1)
 
     def __init__(self):
         super().__init__()

@@ -27,9 +27,9 @@ class BuildSignal(RESTHandler):
 @Discoverable(DiscoverableType.block)
 class PostSignal(Block):
     
-    host = StringProperty(name='Host', default='127.0.0.1')
-    port = IntProperty(name='Port', default=8182)
-    endpoint = StringProperty(name='Endpoint', default='')
+    host = StringProperty(title='Host', default='127.0.0.1')
+    port = IntProperty(title='Port', default=8182)
+    endpoint = StringProperty(title='Endpoint', default='')
 
     def __init__(self):
         super().__init__()
