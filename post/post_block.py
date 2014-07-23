@@ -5,7 +5,7 @@ from nio.common.discovery import Discoverable, DiscoverableType
 from nio.common.versioning.dependency import DependsOn
 from nio.metadata.properties.string import StringProperty
 from nio.metadata.properties.int import IntProperty
-from nio.modules.web.imports import WebEngine, RESTHandler
+from nio.modules.web import WebEngine, RESTHandler
 
 
 class BuildSignal(RESTHandler):

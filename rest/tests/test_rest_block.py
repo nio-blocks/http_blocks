@@ -2,7 +2,7 @@ from unittest.mock import patch
 from requests import Response
 from http_blocks.rest.rest_block import RESTPolling
 from nio.util.support.block_test_case import NIOBlockTestCase
-from nio.modules.threading.imports import Event
+from nio.modules.threading import Event
 
 
 class RESTBlock(RESTPolling):
