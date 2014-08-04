@@ -14,13 +14,18 @@ class BuildSignal(RESTHandler):
         self.notify = notifier
         self._logger = logger
 
-    def on_post(self, identifier, body, params):
-        if isinstance(body, list) or isinstance(body, dict):
-            body = body if isinstance(body, list) else [body]
-            signals = [Signal(s) for s in body]
-            self.notify(signals)
+    def on_post(self, req, rsp):
+        body = req.get_body()
+        if isinstance(body, dict):
+            body = [body]
+        elif isinstance(body, list):
+            pass
         else:
             self._logger.error("Invalid JSON in PostSignal request body")
+            return
+        
+        signals = [Signal(s) for s in body]
+        self.notify(signals)
 
 
 @DependsOn("nio.modules.web", "1.0.0")
