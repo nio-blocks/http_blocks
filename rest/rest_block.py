@@ -41,7 +41,7 @@ class RESTPolling(Block):
         self._poll_lock = Lock()
         self._retry_count = 0
         self._auth = None
-        self._recent_posts = [[]]
+        self._recent_posts = [set()]
 
     def configure(self, context):
         super().configure(context)
@@ -83,7 +83,7 @@ class RESTPolling(Block):
         self._poll_lock.acquire()
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
-        first_page = True if paging == False else False
+        first_page = not paging
 
         self._logger.debug("%s: %s" %
                            ("Paging" if paging else "Polling", url))
@@ -284,7 +284,7 @@ class RESTPolling(Block):
 
         # If first page of query, clear recent_posts for this query.
         if first_page:
-            self._recent_posts[self._idx] = []
+            self._recent_posts[self._idx] = set()
         # Return only posts that are not in self._recent_posts.
         return_posts = []
         for post in posts:
@@ -298,7 +298,7 @@ class RESTPolling(Block):
                         break
                 if unique_post:
                     return_posts.append(post)
-                self._recent_posts[self._idx].append(post_id)
+                self._recent_posts[self._idx].add(post_id)
             else:
                 # No unique id so keep the post.
                 return_posts.append(post)
