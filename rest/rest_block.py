@@ -13,7 +13,7 @@ from nio.modules.threading import Lock
 
 
 class RESTPolling(Block):
-    
+
     """ A base class for blocks that poll restful web services.
 
     """
@@ -41,6 +41,7 @@ class RESTPolling(Block):
         self._poll_lock = Lock()
         self._retry_count = 0
         self._auth = None
+        self._recent_posts = [set()]
 
     def configure(self, context):
         super().configure(context)
@@ -51,6 +52,7 @@ class RESTPolling(Block):
         self._modifieds *= self._n_queries
         self._prev_freshest *= self._n_queries
         self._prev_stalest *= self._n_queries
+        self._recent_posts *= self._n_queries
 
     def start(self):
         super().start()
@@ -81,10 +83,11 @@ class RESTPolling(Block):
         self._poll_lock.acquire()
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
-            
+        first_page = not paging
+
         self._logger.debug("%s: %s" %
                            ("Paging" if paging else "Polling", url))
-        
+
         # Requests won't generally throw exceptions, but this provides a
         # bit of convenience for the block developer.
         try:
@@ -95,12 +98,12 @@ class RESTPolling(Block):
                 resp = requests.get(url, headers=headers)
         except Exception as e:
             self._logger.error("GET request failed, details: %s" % e)
-        
+
             # terminate the polling thread. this exception probably
             # indicates incorrect code in the user-defined block.
             self._poll_lock.release()
             return
-            
+
         status = resp.status_code
         self.etag = self.etag if paging \
                      else resp.headers.get('ETag')
@@ -116,7 +119,7 @@ class RESTPolling(Block):
             self._poll_lock.release()
             self._retry_poll(paging)
         else:
-            
+
             # cancel the retry job if we were in a retry cycle
             self._retry_job = None
             self.retry_interval = self._init_retry_interval
@@ -125,6 +128,8 @@ class RESTPolling(Block):
             # process the Response object and initiate paging if necessary
             try:
                 signals, paging = self._process_response(resp)
+                signals = self._discard_duplicate_posts(
+                    signals, first_page)
                 if signals:
                     self.notify_signals(signals)
 
@@ -141,7 +146,7 @@ class RESTPolling(Block):
                     if self.queries:
                         self._logger.debug(
                             "Preparing to query for: %s" % self.current_query)
-                    
+
 
             except Exception as e:
                 self._logger.exception(e)
@@ -151,7 +156,7 @@ class RESTPolling(Block):
 
         if self._poll_lock.locked():
             self._poll_lock.release()
-                
+
     def _authenticate(self):
         """ This should be overridden in user-defined blocks.
 
@@ -248,7 +253,7 @@ class RESTPolling(Block):
 
         Args:
             posts (list(dict)): A list of posts.
-        
+
         Returns:
             posts (list(dict)): The amended list of posts.
 
@@ -257,16 +262,73 @@ class RESTPolling(Block):
                  if self.created_epoch(p) > self.prev_freshest]
         return posts
 
+    def _discard_duplicate_posts(self, posts, first_page):
+        """ Removes sigs that were already found by another query.
+
+        Each query acts independently so if a post matches multiple
+        queries, then it will be notified for each one. This method
+        keeps track of the all the most recent posts for each query
+        and discards posts if they are already here.
+
+        Args:
+            posts (list(dict)): A list of posts.
+            first_page (bool): True if this is the first page of query.
+
+        Returns:
+            posts (list(dict)): The amended list of posts.
+
+        """
+        # No need ot try to discards posts if there is only one query.
+        if self._n_queries <= 1:
+            return posts
+
+        # If first page of query, clear recent_posts for this query.
+        if first_page:
+            self._recent_posts[self._idx] = set()
+        # Return only posts that are not in self._recent_posts.
+        return_posts = []
+        for post in posts:
+            post_id = self._get_post_id(post)
+            if post_id:
+                # Only keep post if id has not been seen recently.
+                unique_post = True
+                for recent_posts in self._recent_posts:
+                    if post_id in recent_posts:
+                        unique_post = False
+                        break
+                if unique_post:
+                    return_posts.append(post)
+                self._recent_posts[self._idx].add(post_id)
+            else:
+                # No unique id so keep the post.
+                return_posts.append(post)
+
+        return return_posts
+
+    def _get_post_id(self, post):
+        """ Returns a uniquely identifying string for a post.
+
+        This should be overridden in user-defined blocks.
+
+        Args:
+            post (dict): A post.
+        Returns:
+            id (string): A string that uniquely identifies a
+                         post. None indicated that the post should
+                         be treated as unique.
+        """
+        return None
+
     def created_epoch(self, post):
         """ Helper function to return the seconds since the epoch
         for the given post's 'created_time.
 
         Args:
             post (dict): Should contain a 'created_time' key.
-        
+
         Returns:
             seconds (int): post[created_time] in seconds since epoch.
-        
+
         """
         dt = self._parse_date(post.get(self._created_field, ''))
         return self._unix_time(dt)
@@ -285,7 +347,7 @@ class RESTPolling(Block):
         epoch = datetime.utcfromtimestamp(0)
         delta = dt - epoch
         return int(delta.total_seconds())
-        
+
     @property
     def current_query(self):
         return quote(self.queries[self._idx])
@@ -325,7 +387,7 @@ class RESTPolling(Block):
     @property
     def freshest(self):
         return self._freshest[self._idx]
-        
+
     @freshest.setter
     def freshest(self, timestamp):
         self._freshest[self._idx] = timestamp
@@ -333,7 +395,7 @@ class RESTPolling(Block):
     @property
     def prev_freshest(self):
         return self._prev_freshest[self._idx]
-        
+
     @prev_freshest.setter
     def prev_freshest(self, timestamp):
         self._prev_freshest[self._idx] = timestamp
@@ -341,7 +403,7 @@ class RESTPolling(Block):
     @property
     def prev_stalest(self):
         return self._prev_stalest[self._idx]
-        
+
     @prev_stalest.setter
     def prev_stalest(self, timestamp):
         self._prev_stalest[self._idx] = timestamp
