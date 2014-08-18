@@ -1,6 +1,8 @@
 import json
 from nio.common.block.base import Block
 from nio.common.signal.base import Signal
+from nio.common.command import command
+from nio.common.command.params.dict import DictParameter
 from nio.common.discovery import Discoverable, DiscoverableType
 from nio.common.versioning.dependency import DependsOn
 from nio.metadata.properties.string import StringProperty
@@ -28,6 +30,7 @@ class BuildSignal(RESTHandler):
         self.notify(signals)
 
 
+@command("post", DictParameter("sig"))
 @DependsOn("nio.modules.web", "1.0.0")
 @Discoverable(DiscoverableType.block)
 class PostSignal(Block):
@@ -43,10 +46,13 @@ class PostSignal(Block):
 
     def configure(self, context):
         super().configure(context)
+        print(self.port)
         self._server = WebEngine.create(self.endpoint, 
-                                        {'socket_host': self.host,
-                                         'socket_port': self.port})
+                                        {'host': self.host,
+                                         'port': self.port})
         self._server.add_handler(BuildSignal(self.notify_signals,
                                              self._logger))
         context.hooks.attach('after_blocks_start', WebEngine.start)
 
+    def post(self, sig):
+        self.notify_signals([Signal(sig)])
