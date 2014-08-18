@@ -41,7 +41,7 @@ class RESTPolling(Block):
         self._poll_lock = Lock()
         self._retry_count = 0
         self._auth = None
-        self._recent_posts = [set()]
+        self._recent_posts = None
 
     def configure(self, context):
         super().configure(context)
@@ -52,7 +52,6 @@ class RESTPolling(Block):
         self._modifieds *= self._n_queries
         self._prev_freshest *= self._n_queries
         self._prev_stalest *= self._n_queries
-        self._recent_posts *= self._n_queries
 
     def start(self):
         super().start()
@@ -83,7 +82,7 @@ class RESTPolling(Block):
         self._poll_lock.acquire()
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
-        first_page = not paging
+        self._recent_posts = self._recent_posts if self._idx else {}
 
         self._logger.debug("%s: %s" %
                            ("Paging" if paging else "Polling", url))
@@ -128,8 +127,7 @@ class RESTPolling(Block):
             # process the Response object and initiate paging if necessary
             try:
                 signals, paging = self._process_response(resp)
-                signals = self._discard_duplicate_posts(
-                    signals, first_page)
+                signals = self._discard_duplicate_posts(signals)
                 if signals:
                     self.notify_signals(signals)
 
@@ -262,7 +260,7 @@ class RESTPolling(Block):
                  if self.created_epoch(p) > self.prev_freshest]
         return posts
 
-    def _discard_duplicate_posts(self, posts, first_page):
+    def _discard_duplicate_posts(self, posts):
         """ Removes sigs that were already found by another query.
 
         Each query acts independently so if a post matches multiple
@@ -282,28 +280,15 @@ class RESTPolling(Block):
         if self._n_queries <= 1:
             return posts
 
-        # If first page of query, clear recent_posts for this query.
-        if first_page:
-            self._recent_posts[self._idx] = set()
         # Return only posts that are not in self._recent_posts.
-        return_posts = []
+        result = []
         for post in posts:
             post_id = self._get_post_id(post)
-            if post_id:
-                # Only keep post if id has not been seen recently.
-                unique_post = True
-                for recent_posts in self._recent_posts:
-                    if post_id in recent_posts:
-                        unique_post = False
-                        break
-                if unique_post:
-                    return_posts.append(post)
-                self._recent_posts[self._idx].add(post_id)
-            else:
-                # No unique id so keep the post.
-                return_posts.append(post)
+            if not post_id or self._recent_posts.get(post_id) is None:
+                result.append(post)
+                self._recent_posts[post_id] = True
 
-        return return_posts
+        return result
 
     def _get_post_id(self, post):
         """ Returns a uniquely identifying string for a post.

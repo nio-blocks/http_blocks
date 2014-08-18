@@ -3,6 +3,7 @@ from unittest.mock import patch
 from requests import Response
 from nio.util.support.block_test_case import NIOBlockTestCase
 from nio.modules.threading import Event
+from nio.common.signal.base import Signal
 
 
 class RESTBlock(RESTPolling):
@@ -14,6 +15,22 @@ class RESTBlock(RESTPolling):
     def poll(self, paging=False):
         self._poll_event.set()
         super().poll(paging)
+
+
+class MultiQueryREST(RESTPolling):
+    def __init__(self, event):
+        super().__init__()
+        self._num_polls = 0
+        self._poll_event = event
+
+    def poll(self, paging=False):
+        self._num_polls += 1
+        if self._num_polls == 2:
+            self._poll_event.set()
+        super().poll(paging)
+
+    def _get_post_id(self, signal):
+        return signal._id
 
 class RESTRetry(RESTPolling):
     def __init__(self, events):
@@ -58,6 +75,7 @@ class TestRESTPolling(NIOBlockTestCase):
         blk = RESTBlock(e)
         mock_get.return_value = Response()
         mock_get.return_value.status_code = 200
+        mock_proc.return_value = [None, None]
         self.configure_block(blk, {
             "polling_interval": {
                 "seconds": 1
@@ -104,4 +122,36 @@ class TestRESTPolling(NIOBlockTestCase):
         self.assertEqual(mock_retry.call_count, 1)
         self.assertEqual(mock_get.call_count, 1)
 
+        blk.stop()
+
+    @patch("requests.get")
+    @patch("http_blocks.rest.rest_block.RESTPolling._process_response")
+    @patch("http_blocks.rest.rest_block.RESTPolling._prepare_url")
+    def test_no_dupes(self, mock_prep, mock_proc, mock_get):
+        e = Event()
+        blk = MultiQueryREST(e)
+        mock_get.return_value = Response()
+        mock_get.return_value.status_code = 200
+
+        mock_proc.return_value = [
+            Signal({'_id': 1}), 
+            Signal({'_id': 2})
+        ], False
+
+        self.configure_block(blk, {
+            "polling_interval": {
+                "seconds": 0.5
+            },
+            "retry_interval": {
+                "seconds": 1
+            },
+            "queries": [
+                "foobar",
+                "bazqux"
+            ]
+        })
+        blk.start()
+        e.wait(2)
+        
+        self.assert_num_signals_notified(2, blk)
         blk.stop()
