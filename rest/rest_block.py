@@ -257,7 +257,7 @@ class RESTPolling(Block):
 
         """
         posts = [p for p in posts \
-                 if self.created_epoch(p) > self.prev_freshest]
+                 if self.created_epoch(p) > (self.prev_freshest or 0)]
         return posts
 
     def _discard_duplicate_posts(self, posts):
