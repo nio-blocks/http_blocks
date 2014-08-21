@@ -1,4 +1,5 @@
 import json
+from blocks.mixins.web_server.web_server_block import WebServer
 from nio.common.block.base import Block
 from nio.common.signal.base import Signal
 from nio.common.command import command
@@ -33,7 +34,7 @@ class BuildSignal(RESTHandler):
 @command("post", DictParameter("sig"))
 @DependsOn("nio.modules.web", "1.0.0")
 @Discoverable(DiscoverableType.block)
-class PostSignal(Block):
+class PostSignal(Block, WebServer):
     
     host = StringProperty(title='Host', default='127.0.0.1')
     port = IntProperty(title='Port', default=8182)
@@ -46,13 +47,15 @@ class PostSignal(Block):
 
     def configure(self, context):
         super().configure(context)
-        print(self.port)
-        self._server = WebEngine.create(self.endpoint, 
-                                        {'host': self.host,
-                                         'port': self.port})
-        self._server.add_handler(BuildSignal(self.notify_signals,
-                                             self._logger))
-        context.hooks.attach('after_blocks_start', WebEngine.start)
+        conf = {
+            'host': self.host,
+            'port': self.port,
+            'endpoint': self.endpoint
+        }
+        self.add_endpoint(
+            BuildSignal(self.notify_signals, self._logger),
+            conf, context
+        )
 
     def post(self, sig):
         self.notify_signals([Signal(sig)])
