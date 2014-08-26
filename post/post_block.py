@@ -1,5 +1,4 @@
-import json
-from blocks.mixins.web_server.web_server_block import WebServer
+from .mixins.web_server.web_server_block import WebServer
 from nio.common.block.base import Block
 from nio.common.signal.base import Signal
 from nio.common.command import command
@@ -8,7 +7,7 @@ from nio.common.discovery import Discoverable, DiscoverableType
 from nio.common.versioning.dependency import DependsOn
 from nio.metadata.properties.string import StringProperty
 from nio.metadata.properties.int import IntProperty
-from nio.modules.web import WebEngine, RESTHandler
+from nio.modules.web import RESTHandler
 
 
 class BuildSignal(RESTHandler):
@@ -26,7 +25,7 @@ class BuildSignal(RESTHandler):
         else:
             self._logger.error("Invalid JSON in PostSignal request body")
             return
-        
+
         signals = [Signal(s) for s in body]
         self.notify(signals)
 
@@ -35,7 +34,7 @@ class BuildSignal(RESTHandler):
 @DependsOn("nio.modules.web", "1.0.0")
 @Discoverable(DiscoverableType.block)
 class PostSignal(Block, WebServer):
-    
+
     host = StringProperty(title='Host', default='127.0.0.1')
     port = IntProperty(title='Port', default=8182)
     endpoint = StringProperty(title='Endpoint', default='')
