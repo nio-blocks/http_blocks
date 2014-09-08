@@ -37,7 +37,6 @@ class PostSignal(Block, WebServer):
 
     host = StringProperty(title='Host', default='127.0.0.1')
     port = IntProperty(title='Port', default=8182)
-    endpoint = StringProperty(title='Endpoint', default='')
 
     def __init__(self):
         super().__init__()
@@ -48,12 +47,11 @@ class PostSignal(Block, WebServer):
         super().configure(context)
         conf = {
             'host': self.host,
-            'port': self.port,
-            'endpoint': self.endpoint
+            'port': self.port
         }
         self.add_endpoint(
             BuildSignal(self.notify_signals, self._logger),
-            conf, context
+            conf
         )
 
     def post(self, sig):
