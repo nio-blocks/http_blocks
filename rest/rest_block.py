@@ -10,6 +10,8 @@ from nio.metadata.properties.object import ObjectProperty
 from nio.metadata.properties.int import IntProperty
 from nio.modules.scheduler import Job
 from nio.modules.threading import Lock
+from nio.common.signal.status import StatusSignal
+from nio.common.block.controller import BlockStatus
 
 
 class RESTPolling(Block):
@@ -30,7 +32,7 @@ class RESTPolling(Block):
         self._idx = 0
         self._poll_job = None
         self._retry_job = None
-        self._init_retry_interval = None
+        self._retry_interval = None
         self._etags = [None]
         self._modifieds = [None]
         self._freshest = [None]
@@ -46,7 +48,7 @@ class RESTPolling(Block):
     def configure(self, context):
         super().configure(context)
         self._authenticate()
-        self._init_retry_interval = self.retry_interval
+        self._retry_interval = self.retry_interval
         self._n_queries = len(self.queries) or 1
         self._etags *= self._n_queries
         self._modifieds *= self._n_queries
@@ -65,6 +67,8 @@ class RESTPolling(Block):
         super().stop()
         if self._poll_job is not None:
             self._poll_job.cancel()
+        if self._retry_job is not None:
+            self._retry_job.cancel()
 
     def poll(self, paging=False):
         """ Called from user-defined block. Assumes that self.url contains
@@ -120,8 +124,11 @@ class RESTPolling(Block):
         else:
 
             # cancel the retry job if we were in a retry cycle
-            self._retry_job = None
-            self.retry_interval = self._init_retry_interval
+            if self._retry_job is not None:
+                self._retry_job.cancel()
+                self._retry_job = None
+            self._retry_interval = self.retry_interval
+            # this poll was a success so reset the retry count
             self._retry_count = 0
 
             # process the Response object and initiate paging if necessary
@@ -205,7 +212,10 @@ class RESTPolling(Block):
         Implement your retry strategy here. Exponential backoff? War?
 
         """
-        pass
+        self._logger.debug("Updating retry interval from {} to {}".
+                           format(self._retry_interval,
+                                  self._retry_interval * 2))
+        self._retry_interval *= 2
 
     def _retry_poll(self, paging=False):
         """ Helper method to schedule polling retries.
@@ -219,13 +229,16 @@ class RESTPolling(Block):
             self._retry_count += 1
             self._retry_job = Job(
                 self.poll,
-                self.retry_interval,
+                self._retry_interval,
                 False,
                 paging=paging
             )
             self._update_retry_interval()
         else:
-            self._logger.error("Out of retries. Aborting.")
+            self._logger.error("Out of retries. "
+                               "Aborting and changing status to Error.")
+            self.notify_management_signal(StatusSignal(BlockStatus.error,
+                                                        'Out of retries.'))
 
     def update_freshness(self, posts):
         """ Bookkeeping for the state of the current query's polling.
