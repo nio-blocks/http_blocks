@@ -57,11 +57,14 @@ class RESTPolling(Block):
 
     def start(self):
         super().start()
-        self._poll_job = Job(
-            self.poll,
-            self.polling_interval,
-            True
-        )
+        if self.polling_interval.total_seconds() > 0:
+            self._poll_job = Job(
+                self.poll,
+                self.polling_interval,
+                True
+            )
+        else:
+            self._logger.info("No poll job")
 
     def stop(self):
         super().stop()
@@ -142,11 +145,12 @@ class RESTPolling(Block):
                 if paging:
                     self._paging()
                 else:
-                    self._poll_job = self._poll_job or Job(
-                        self.poll,
-                        self.polling_interval,
-                        True
-                    )
+                    if self.polling_interval.total_seconds() > 0:
+                        self._poll_job = self._poll_job or Job(
+                            self.poll,
+                            self.polling_interval,
+                            True
+                        )
                     self._idx = (self._idx + 1) % self._n_queries
                     if self.queries:
                         self._logger.debug(
