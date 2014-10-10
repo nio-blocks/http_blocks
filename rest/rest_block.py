@@ -73,6 +73,10 @@ class RESTPolling(Block):
         if self._retry_job is not None:
             self._retry_job.cancel()
 
+    def process_signals(self, signals):
+        for signal in signals:
+            self.poll()
+
     def poll(self, paging=False):
         """ Called from user-defined block. Assumes that self.url contains
         the fully-formed endpoint intended for polling.
