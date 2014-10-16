@@ -9,7 +9,7 @@ from nio.metadata.properties.list import ListProperty
 from nio.metadata.properties.object import ObjectProperty
 from nio.metadata.properties.int import IntProperty
 from nio.modules.scheduler import Job
-from nio.modules.threading import Lock
+from nio.modules.threading import Lock, spawn
 from nio.common.signal.status import StatusSignal
 from nio.common.block.controller import BlockStatus
 
@@ -63,6 +63,7 @@ class RESTPolling(Block):
                 self.polling_interval,
                 True
             )
+            spawn(self.poll())
         else:
             self._logger.info("No poll job")
 
