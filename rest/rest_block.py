@@ -12,8 +12,11 @@ from nio.modules.scheduler import Job
 from nio.modules.threading import Lock, spawn
 from nio.common.signal.status import StatusSignal
 from nio.common.block.controller import BlockStatus
+from nio.util.flags_enum import FlagsEnum
+from nio.common.versioning.dependency import DependsOn
 
 
+@DependsOn("nio.modules.communication", "1.0.0")
 class RESTPolling(Block):
 
     """ A base class for blocks that poll restful web services.
@@ -117,7 +120,7 @@ class RESTPolling(Block):
 
         status = resp.status_code
         self.etag = self.etag if paging \
-                     else resp.headers.get('ETag')
+                         else resp.headers.get('ETag')
         self.modified = self.modified if paging \
                          else resp.headers.get('Last-Modified')
 
@@ -160,7 +163,6 @@ class RESTPolling(Block):
                     if self.queries:
                         self._logger.debug(
                             "Preparing to query for: %s" % self.current_query)
-
 
             except Exception as e:
                 self._logger.exception(e)
@@ -246,8 +248,12 @@ class RESTPolling(Block):
         else:
             self._logger.error("Out of retries. "
                                "Aborting and changing status to Error.")
-            self.notify_management_signal(StatusSignal(BlockStatus.error,
-                                                        'Out of retries.'))
+            status_signal = StatusSignal(FlagsEnum(BlockStatus,
+                                                   BlockStatus.error),
+                                         'Out of retries.')
+            setattr(status_signal, 'name', self.name)
+            setattr(status_signal, 'source', 'Block')
+            self.notify_management_signal(status_signal)
 
     def update_freshness(self, posts):
         """ Bookkeeping for the state of the current query's polling.
@@ -414,4 +420,3 @@ class RESTPolling(Block):
     @prev_stalest.setter
     def prev_stalest(self, timestamp):
         self._prev_stalest[self._idx] = timestamp
-
