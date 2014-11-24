@@ -22,14 +22,16 @@ class RESTPolling(Block):
     """ A base class for blocks that poll restful web services.
 
     """
-    polling_interval = TimeDeltaProperty(title='Polling Interval')
-    retry_interval = TimeDeltaProperty(title='Retry Interval')
+    polling_interval = TimeDeltaProperty(title='Polling Interval',
+                                         default={"seconds": 20})
+    retry_interval = TimeDeltaProperty(title='Retry Interval',
+                                       default={"seconds": 60})
     queries = ListProperty(str, title='Query Strings')
-    retry_limit = IntProperty(title='Retry Limit', default=1)
+    retry_limit = IntProperty(title='Retry Limit', default=3)
 
     def __init__(self):
         super().__init__()
-        self._n_queries = 1
+        self._n_queries = 0
         self._url = None
         self._paging_url = None
         self._idx = 0
@@ -52,7 +54,7 @@ class RESTPolling(Block):
         super().configure(context)
         self._authenticate()
         self._retry_interval = self.retry_interval
-        self._n_queries = len(self.queries) or 1
+        self._n_queries = len(self.queries)
         self._etags *= self._n_queries
         self._modifieds *= self._n_queries
         self._prev_freshest *= self._n_queries
@@ -94,6 +96,8 @@ class RESTPolling(Block):
             None
 
         """
+        if self._n_queries == 0:
+            return
         self._poll_lock.acquire()
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
@@ -304,7 +308,7 @@ class RESTPolling(Block):
             posts (list(dict)): The amended list of posts.
 
         """
-        # No need ot try to discards posts if there is only one query.
+        # No need to try to discards posts if there is only one query.
         if self._n_queries <= 1:
             return posts
 
