@@ -156,9 +156,10 @@ class TestRESTPolling(NIOBlockTestCase):
         self.assert_num_signals_notified(2, blk)
         blk.stop()
 
+    @patch("requests.get")
     @patch("http_blocks.rest.rest_block.RESTPolling.poll")
     @patch("http_blocks.rest.rest_block.RESTPolling._authenticate")
-    def test_no_queries(self, mock_auth, mock_poll):
+    def test_no_queries(self, mock_auth, mock_poll, mock_get):
         e = Event()
         blk = RESTBlock(e)
         self.configure_block(blk, {
@@ -174,4 +175,5 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.process_signals([Signal()])
         mock_auth.assert_called_once()
         self.assertEqual(mock_poll.call_count, 2)
+        self.assertEqual(mock_get.call_count, 0)
         blk.stop()
