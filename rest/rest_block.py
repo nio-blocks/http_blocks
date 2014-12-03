@@ -128,14 +128,12 @@ class RESTPolling(Block):
         self.modified = self.modified if paging \
                          else resp.headers.get('Last-Modified')
 
-        if status != 200 and status != 304:
+        if not self._validate_response(resp):
             self._logger.error(
-                "Polling request returned status %d" % status
+                "Polling request returned status {}: {}".format(
+                    status, resp)
             )
-            self._logger.debug("Attempting to re-authenticate.")
-            self._authenticate()
-            self._poll_lock.release()
-            self._retry_poll(paging)
+            self._retry(resp, paging)
         else:
 
             # cancel the retry job if we were in a retry cycle
@@ -163,7 +161,7 @@ class RESTPolling(Block):
                             self.polling_interval,
                             True
                         )
-                    self._idx = (self._idx + 1) % self._n_queries
+                    self._increment_idx()
                     if self.queries:
                         self._logger.debug(
                             "Preparing to query for: %s" % self.current_query)
@@ -185,6 +183,29 @@ class RESTPolling(Block):
 
         """
         pass
+
+    def _validate_response(self, resp):
+        """ This should be overridden in user-defined blocks.
+
+        This is where we determine if a response is bad and we need a retry.
+
+        Returns:
+            validation (bool): True if response is good, False if bad.
+
+        """
+        return resp.status_code == 200 or resp.status_code == 304
+
+    def _retry(self, resp, paging):
+        """ This should be overridden in user-defined blocks.
+
+        This is where we determine what to do on a bad poll response.
+
+        """
+        self._logger.debug("Attempting to re-authenticate.")
+        self._authenticate()
+        self._poll_lock.release()
+        self._logger.debug("Attempting to retry poll.")
+        self._retry_poll(paging)
 
     def _prepare_url(self, paging):
         """ This should be overridden in user-defined blocks.
@@ -364,6 +385,9 @@ class RESTPolling(Block):
         epoch = datetime.utcfromtimestamp(0)
         delta = dt - epoch
         return int(delta.total_seconds())
+
+    def _increment_idx(self):
+        self._idx = (self._idx + 1) % self._n_queries
 
     @property
     def current_query(self):
