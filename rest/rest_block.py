@@ -128,7 +128,7 @@ class RESTPolling(Block):
         self.modified = self.modified if paging \
                          else resp.headers.get('Last-Modified')
 
-        if self._determine_bad_resp(resp):
+        if not self._validate_response(resp):
             self._logger.error(
                 "Polling request returned status {}: {}".format(
                     status, resp)
@@ -184,13 +184,16 @@ class RESTPolling(Block):
         """
         pass
 
-    def _determine_bad_resp(self, resp):
+    def _validate_response(self, resp):
         """ This should be overridden in user-defined blocks.
 
         This is where we determine if a response is bad and we need a retry.
 
+        Returns:
+            validation (bool): True if response is good, False if bad.
+
         """
-        return resp.status_code != 200 and resp.status_code != 304
+        return resp.status_code == 200 or resp.status_code == 304
 
     def _retry(self, resp, paging):
         """ This should be overridden in user-defined blocks.
