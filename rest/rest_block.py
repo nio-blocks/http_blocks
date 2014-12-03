@@ -130,8 +130,8 @@ class RESTPolling(Block):
 
         if not self._validate_response(resp):
             self._logger.error(
-                "Polling request returned status {}: {}".format(
-                    status, resp)
+                "Polling request of {} returned status {}: {}".format(
+                    url, status, resp.json())
             )
             self._retry(resp, paging)
         else:

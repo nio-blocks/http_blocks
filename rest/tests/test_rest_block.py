@@ -1,5 +1,5 @@
 from ..rest_block import RESTPolling
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from requests import Response
 from nio.util.support.block_test_case import NIOBlockTestCase
 from nio.modules.threading import Event
@@ -102,8 +102,16 @@ class TestRESTPolling(NIOBlockTestCase):
     def test_sched_retry(self, mock_retry, mock_auth, mock_get):
         es = [Event(), Event()]
         blk = RESTRetry(es)
-        mock_get.return_value = Response()
+        mock_get.return_value = Mock()
         mock_get.return_value.status_code = 400
+        mock_get.return_value.json.return_value = \
+            {
+                'meta': {
+                    'error_message': 'you cannot view this resource',
+                    'code': 400,
+                    'error_type': 'APINotAllowedError'
+                }
+            }
         self.configure_block(blk, {
             "polling_interval": {
                 "seconds": 1
