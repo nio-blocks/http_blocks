@@ -125,11 +125,18 @@ class RESTPolling(Block):
             else resp.headers.get('Last-Modified')
 
         if not self._validate_response(resp):
+            raw_resp = resp
+            try:
+                resp = resp.json()
+            except Exception as e:
+                self._logger.warning(
+                    "JSON parse of error response failed: {}".format(str(e))
+                )
             self._logger.error(
                 "Polling request of {} returned status {}: {}".format(
-                    url, status, resp.json())
+                    url, status, resp)
             )
-            self._retry(resp, paging)
+            self._retry(raw_resp, paging)
         else:
 
             # cancel the retry job if we were in a retry cycle
