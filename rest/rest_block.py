@@ -10,9 +10,8 @@ from nio.metadata.properties.object import ObjectProperty
 from nio.metadata.properties.int import IntProperty
 from nio.modules.scheduler import Job
 from nio.modules.threading import Lock, spawn
-from nio.common.signal.status import StatusSignal
+from nio.common.signal.status import BlockStatusSignal
 from nio.common.block.controller import BlockStatus
-from nio.util.flags_enum import FlagsEnum
 from nio.common.versioning.dependency import DependsOn
 
 
@@ -273,11 +272,16 @@ class RESTPolling(Block):
         else:
             self._logger.error("Out of retries. "
                                "Aborting and changing status to Error.")
-            status_signal = StatusSignal(FlagsEnum(BlockStatus,
-                                                   BlockStatus.error),
-                                         'Out of retries.')
-            setattr(status_signal, 'name', self.name)
+            status_signal = BlockStatusSignal(
+                BlockStatus.error, 'Out of retries.')
+
+            # Leaving source for backwards compatibility
+            # In the future, you will know that a status signal is a block
+            # status signal when it contains service_name and name
+            #
+            # TODO: Remove when source gets added to status signals in nio
             setattr(status_signal, 'source', 'Block')
+
             self.notify_management_signal(status_signal)
 
     def update_freshness(self, posts):
