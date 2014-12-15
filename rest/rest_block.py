@@ -3,16 +3,13 @@ import re
 from datetime import datetime
 from urllib.request import quote
 from nio.common.block.base import Block
-from nio.common.discovery import Discoverable, DiscoverableType
 from nio.metadata.properties.timedelta import TimeDeltaProperty
 from nio.metadata.properties.list import ListProperty
-from nio.metadata.properties.object import ObjectProperty
 from nio.metadata.properties.int import IntProperty
 from nio.modules.scheduler import Job
 from nio.modules.threading import Lock, spawn
-from nio.common.signal.status import StatusSignal
+from nio.common.signal.status import BlockStatusSignal
 from nio.common.block.controller import BlockStatus
-from nio.util.flags_enum import FlagsEnum
 from nio.common.versioning.dependency import DependsOn
 
 
@@ -123,10 +120,9 @@ class RESTPolling(Block):
             return
 
         status = resp.status_code
-        self.etag = self.etag if paging \
-                         else resp.headers.get('ETag')
+        self.etag = self.etag if paging else resp.headers.get('ETag')
         self.modified = self.modified if paging \
-                         else resp.headers.get('Last-Modified')
+            else resp.headers.get('Last-Modified')
 
         if not self._validate_response(resp):
             self._logger.error(
@@ -273,11 +269,16 @@ class RESTPolling(Block):
         else:
             self._logger.error("Out of retries. "
                                "Aborting and changing status to Error.")
-            status_signal = StatusSignal(FlagsEnum(BlockStatus,
-                                                   BlockStatus.error),
-                                         'Out of retries.')
-            setattr(status_signal, 'name', self.name)
+            status_signal = BlockStatusSignal(
+                BlockStatus.error, 'Out of retries.')
+
+            # Leaving source for backwards compatibility
+            # In the future, you will know that a status signal is a block
+            # status signal when it contains service_name and name
+            #
+            # TODO: Remove when source gets added to status signals in nio
             setattr(status_signal, 'source', 'Block')
+
             self.notify_management_signal(status_signal)
 
     def update_freshness(self, posts):
@@ -288,7 +289,7 @@ class RESTPolling(Block):
         self._curr_stale = self.created_epoch(posts[-1])
         if self._poll_job is not None:
             if self.prev_freshest is None or \
-                   self.freshest > self.prev_freshest:
+                    self.freshest > self.prev_freshest:
                 self.prev_freshest = self.freshest
             self.freshest = self._curr_fresh
 
@@ -309,7 +310,7 @@ class RESTPolling(Block):
             posts (list(dict)): The amended list of posts.
 
         """
-        posts = [p for p in posts \
+        posts = [p for p in posts
                  if self.created_epoch(p) > (self.prev_freshest or 0)]
         return posts
 
