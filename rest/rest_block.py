@@ -3,10 +3,8 @@ import re
 from datetime import datetime
 from urllib.request import quote
 from nio.common.block.base import Block
-from nio.common.discovery import Discoverable, DiscoverableType
 from nio.metadata.properties.timedelta import TimeDeltaProperty
 from nio.metadata.properties.list import ListProperty
-from nio.metadata.properties.object import ObjectProperty
 from nio.metadata.properties.int import IntProperty
 from nio.modules.scheduler import Job
 from nio.modules.threading import Lock, spawn
@@ -122,10 +120,9 @@ class RESTPolling(Block):
             return
 
         status = resp.status_code
-        self.etag = self.etag if paging \
-                         else resp.headers.get('ETag')
+        self.etag = self.etag if paging else resp.headers.get('ETag')
         self.modified = self.modified if paging \
-                         else resp.headers.get('Last-Modified')
+            else resp.headers.get('Last-Modified')
 
         if not self._validate_response(resp):
             self._logger.error(
@@ -292,7 +289,7 @@ class RESTPolling(Block):
         self._curr_stale = self.created_epoch(posts[-1])
         if self._poll_job is not None:
             if self.prev_freshest is None or \
-                   self.freshest > self.prev_freshest:
+                    self.freshest > self.prev_freshest:
                 self.prev_freshest = self.freshest
             self.freshest = self._curr_fresh
 
@@ -313,7 +310,7 @@ class RESTPolling(Block):
             posts (list(dict)): The amended list of posts.
 
         """
-        posts = [p for p in posts \
+        posts = [p for p in posts
                  if self.created_epoch(p) > (self.prev_freshest or 0)]
         return posts
 
