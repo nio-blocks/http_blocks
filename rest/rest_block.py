@@ -56,6 +56,7 @@ class RESTPolling(Block):
         self._modifieds *= self._n_queries
         self._prev_freshest *= self._n_queries
         self._prev_stalest *= self._n_queries
+        self._recent_posts = [None] * self._n_queries
 
     def start(self):
         super().start()
@@ -98,8 +99,9 @@ class RESTPolling(Block):
         self._poll_lock.acquire()
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
-        self._recent_posts = self._recent_posts if self._idx else {}
-
+        if not paging:
+            self._recent_posts[self._idx] = {}
+        
         self._logger.debug("%s: %s" %
                            ("Paging" if paging else "Polling", url))
 
@@ -338,9 +340,11 @@ class RESTPolling(Block):
         result = []
         for post in posts:
             post_id = self._get_post_id(post)
-            if not post_id or self._recent_posts.get(post_id) is None:
+            is_dupe = True in [record.get(post_id) is not None for record \
+                               in self._recent_posts if record is not None]
+            if not post_id or not is_dupe:
                 result.append(post)
-                self._recent_posts[post_id] = True
+                self._recent_posts[self._idx][post_id] = True
 
         return result
 
