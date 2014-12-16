@@ -340,8 +340,13 @@ class RESTPolling(Block):
         result = []
         for post in posts:
             post_id = self._get_post_id(post)
-            is_dupe = True in [record.get(post_id) is not None for record \
-                               in self._recent_posts if record is not None]
+            is_dupe = False
+            valid_records = [r for r in self._recent_posts if r is not None]
+            for record in valid_records:
+                if post_id in record:
+                    is_dupe = True
+                    break
+                                
             if not post_id or not is_dupe:
                 result.append(post)
                 self._recent_posts[self._idx][post_id] = True
