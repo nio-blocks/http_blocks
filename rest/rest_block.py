@@ -47,6 +47,10 @@ class RESTPolling(Block):
         self._auth = None
         self._recent_posts = None
 
+        # this should be overridden in child blocks to refer to the actual
+        # "created at" field for items returned from the particular service
+        self._created_field = 'created_at'
+
     def configure(self, context):
         super().configure(context)
         self._authenticate()
