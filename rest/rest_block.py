@@ -116,11 +116,9 @@ class RESTPolling(Block):
         except Exception as e:
             self._logger.error("GET request failed, details: %s" % e)
 
-            # terminate the polling thread. this exception probably
-            # indicates incorrect code in the user-defined block.
-            self._poll_lock.release()
-            return
-
+            # Use the usual retry strategy to resolve the error
+            self._retry(None, paging)
+            
         status = resp.status_code
         self.etag = self.etag if paging else resp.headers.get('ETag')
         self.modified = self.modified if paging \
