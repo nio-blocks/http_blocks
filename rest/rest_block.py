@@ -46,6 +46,8 @@ class RESTPolling(Block):
         self._retry_count = 0
         self._auth = None
         self._recent_posts = None
+        self._num_locks = 0
+        self._max_locks = 5  # the max number of lock acquirers that can wait
 
         # this should be overridden in child blocks to refer to the actual
         # "created at" field for items returned from the particular service
@@ -100,12 +102,28 @@ class RESTPolling(Block):
         """
         if self._n_queries == 0:
             return
-        self._poll_lock.acquire()
+
+        if self._num_locks >= self._max_locks:
+            self._logger.warning(
+                "Currently {} locks waiting to be acquired. This is more than "
+                "the max of {}. Ignoring poll".format(
+                    self._num_locks, self._max_locks))
+            return
+
+        # Increment the number of lock waiters so we don't build up too many
+        self._num_locks += 1
+        with self._poll_lock:
+            self._locked_poll(paging)
+        self._num_locks -= 1
+
+    def _locked_poll(self, paging=False):
+        """ Execute the poll, while being assured that resources are locked """
+
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
         if not paging:
             self._recent_posts[self._idx] = {}
-        
+
         self._logger.debug("%s: %s" %
                            ("Paging" if paging else "Polling", url))
 
@@ -122,7 +140,7 @@ class RESTPolling(Block):
 
             # Use the usual retry strategy to resolve the error
             self._retry(None, paging)
-            
+
         status = resp.status_code
         self.etag = self.etag if paging else resp.headers.get('ETag')
         self.modified = self.modified if paging \
@@ -158,7 +176,6 @@ class RESTPolling(Block):
                 if signals:
                     self.notify_signals(signals)
 
-                self._poll_lock.release()
                 if paging:
                     self._paging()
                 else:
@@ -178,9 +195,6 @@ class RESTPolling(Block):
                 self._logger.error(
                     "Error while processing polling response: %s" % e
                 )
-
-        if self._poll_lock.locked():
-            self._poll_lock.release()
 
     def _authenticate(self):
         """ This should be overridden in user-defined blocks.
@@ -210,7 +224,6 @@ class RESTPolling(Block):
         """
         self._logger.debug("Attempting to re-authenticate.")
         self._authenticate()
-        self._poll_lock.release()
         self._logger.debug("Attempting to retry poll.")
         self._retry_poll(paging)
 
@@ -247,7 +260,7 @@ class RESTPolling(Block):
             self._poll_job.cancel()
             self._poll_job = None
 
-        self.poll(True)
+        self._locked_poll(True)
 
     def _update_retry_interval(self):
         """ This should be overridden in user-defined blocks.
@@ -355,7 +368,7 @@ class RESTPolling(Block):
                 if post_id in record:
                     is_dupe = True
                     break
-                                
+
             if not post_id or not is_dupe:
                 result.append(post)
                 self._recent_posts[self._idx][post_id] = True
