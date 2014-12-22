@@ -44,8 +44,8 @@ class RESTRetry(RESTPolling):
 
 class TestRESTPolling(NIOBlockTestCase):
 
-    @patch("http_blocks.rest.rest_block.RESTPolling.poll")
-    @patch("http_blocks.rest.rest_block.RESTPolling._authenticate")
+    @patch.object(RESTPolling, "poll")
+    @patch.object(RESTPolling, "_authenticate")
     def test_machinery(self, mock_auth, mock_poll):
         e = Event()
         blk = RESTBlock(e)
@@ -68,8 +68,8 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.stop()
 
     @patch("requests.get")
-    @patch("http_blocks.rest.rest_block.RESTPolling._process_response")
-    @patch("http_blocks.rest.rest_block.RESTPolling._prepare_url")
+    @patch.object(RESTPolling, "_process_response")
+    @patch.object(RESTPolling, "_prepare_url")
     def test_poll(self, mock_prep, mock_proc, mock_get):
         e = Event()
         blk = RESTBlock(e)
@@ -97,8 +97,8 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.stop()
 
     @patch("requests.get")
-    @patch("http_blocks.rest.rest_block.RESTPolling._authenticate")
-    @patch("http_blocks.rest.rest_block.RESTPolling._retry_poll")
+    @patch.object(RESTPolling, "_authenticate")
+    @patch.object(RESTPolling, "_retry_poll")
     def test_sched_retry(self, mock_retry, mock_auth, mock_get):
         es = [Event(), Event()]
         blk = RESTRetry(es)
@@ -133,8 +133,8 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.stop()
 
     @patch("requests.get")
-    @patch("http_blocks.rest.rest_block.RESTPolling._process_response")
-    @patch("http_blocks.rest.rest_block.RESTPolling._prepare_url")
+    @patch.object(RESTPolling, "_process_response")
+    @patch.object(RESTPolling, "_prepare_url")
     def test_no_dupes(self, mock_prep, mock_proc, mock_get):
         e = Event()
         blk = MultiQueryREST(e)
@@ -165,8 +165,8 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.stop()
 
     @patch("requests.get")
-    @patch("http_blocks.rest.rest_block.RESTPolling.poll")
-    @patch("http_blocks.rest.rest_block.RESTPolling._authenticate")
+    @patch.object(RESTPolling, "poll")
+    @patch.object(RESTPolling, "_authenticate")
     def test_no_queries(self, mock_auth, mock_poll, mock_get):
         e = Event()
         blk = RESTBlock(e)
