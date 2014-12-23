@@ -140,6 +140,7 @@ class RESTPolling(Block):
 
             # Use the usual retry strategy to resolve the error
             self._retry(None, paging)
+            return
 
         status = resp.status_code
         self.etag = self.etag if paging else resp.headers.get('ETag')
