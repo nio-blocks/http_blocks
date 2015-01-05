@@ -39,6 +39,8 @@ class RESTRetry(RESTPolling):
 
     def poll(self, paging=False):
         self._poll_events[0].set()
+        if len(self._poll_events) == 1:
+            return
         self._poll_events = self._poll_events[1:]
         super().poll(paging)
 
@@ -126,9 +128,9 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.start()
         es[1].wait(2)
 
-        self.assertEqual(mock_auth.call_count, 3)
-        self.assertEqual(mock_retry.call_count, 2)
-        self.assertEqual(mock_get.call_count, 2)
+        self.assertEqual(mock_auth.call_count, 2)
+        self.assertEqual(mock_retry.call_count, 1)
+        self.assertEqual(mock_get.call_count, 1)
 
         blk.stop()
 
