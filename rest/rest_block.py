@@ -72,7 +72,7 @@ class RESTPolling(Block):
                 self.polling_interval,
                 True
             )
-            spawn(self.poll())
+            spawn(self.poll)
         else:
             self._logger.info("No poll job")
 
