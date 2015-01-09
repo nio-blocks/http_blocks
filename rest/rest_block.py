@@ -1,11 +1,12 @@
 import requests
 import re
 from datetime import datetime
-from urllib.request import quote
+from urllib.request import quote, unquote
 from nio.common.block.base import Block
 from nio.metadata.properties.timedelta import TimeDeltaProperty
 from nio.metadata.properties.list import ListProperty
 from nio.metadata.properties.int import IntProperty
+from nio.metadata.properties.string import StringProperty
 from nio.modules.scheduler import Job
 from nio.modules.threading import Lock, spawn
 from nio.common.signal.status import BlockStatusSignal
@@ -24,6 +25,7 @@ class RESTPolling(Block):
     retry_interval = TimeDeltaProperty(title='Retry Interval',
                                        default={"seconds": 60})
     queries = ListProperty(str, title='Query Strings')
+    include_query = StringProperty(title='Include Query Field', allow_none=True)
     retry_limit = IntProperty(title='Retry Limit', default=3)
 
     def __init__(self):
@@ -174,6 +176,14 @@ class RESTPolling(Block):
             try:
                 signals, paging = self._process_response(resp)
                 signals = self._discard_duplicate_posts(signals)
+
+                # add the include_query attribute if it is configured
+                if self.include_query is not None and signals is not None:
+                    for s in signals:
+                        setattr(
+                            s, self.include_query, unquote(self.current_query)
+                        )
+
                 if signals:
                     self.notify_signals(signals)
 
