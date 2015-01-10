@@ -178,7 +178,7 @@ class RESTPolling(Block):
                 signals = self._discard_duplicate_posts(signals)
 
                 # add the include_query attribute if it is configured
-                if self.include_query is not None and signals is not None:
+                if self.include_query and signals is not None:
                     for s in signals:
                         setattr(
                             s, self.include_query, unquote(self.current_query)
