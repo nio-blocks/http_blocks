@@ -126,86 +126,105 @@ class RESTPolling(Block):
         if not paging:
             self._recent_posts[self._idx] = {}
 
-        self._logger.debug("%s: %s" %
-                           ("Paging" if paging else "Polling", url))
+        self._logger.debug(
+            "{}: {}".format("Paging" if paging else "Polling", url)
+        )
 
-        # Requests won't generally throw exceptions, but this provides a
-        # bit of convenience for the block developer.
-        try:
-            resp = None
-            if self._auth is not None:
-                resp = requests.get(url, headers=headers, auth=self._auth)
-            else:
-                resp = requests.get(url, headers=headers)
-        except Exception as e:
-            self._logger.error("GET request failed, details: %s" % e)
-
-            # Use the usual retry strategy to resolve the error
-            self._retry(None, paging)
+        resp = self._execute_request(url, headers)
+        if resp is None:
             return
 
-        status = resp.status_code
         self.etag = self.etag if paging else resp.headers.get('ETag')
         self.modified = self.modified if paging \
             else resp.headers.get('Last-Modified')
 
-        if not self._validate_response(resp):
-            raw_resp = resp
-            try:
-                resp = resp.json()
-            except Exception as e:
-                self._logger.warning(
-                    "JSON parse of error response failed: {}".format(str(e))
-                )
+        try:
+            if not self._validate_response(resp):
+                self._on_failure(resp, paging, url)
+            else:
+                self._on_success(resp, paging)
+        except Exception as e:
+            self._logger.exception(e)
+            self._logger.error(
+                "Error processing polling response: {}: {}".format(
+                    type(e).__name__, str(e))
+            )
+
+    def _on_failure(self, resp, paging, url):
+        """ This can be overridden in user-defined blocks.
+
+        Defines how failed polling requests will be handled.
+
+        """
+        try:
+            status_code = resp.status_code
+            resp = resp.json()
+        finally:
             self._logger.error(
                 "Polling request of {} returned status {}: {}".format(
-                    url, status, resp)
+                    url, status_code, resp)
             )
-            self._retry(raw_resp, paging)
-        else:
+            self._retry(paging)
 
-            # cancel the retry job if we were in a retry cycle
-            if self._retry_job is not None:
-                self._retry_job.cancel()
-                self._retry_job = None
-            self._retry_interval = self.retry_interval
-            # this poll was a success so reset the retry count
-            self._retry_count = 0
+    def _on_success(self, resp, paging):
+        """ This can be overridden in user-defined blocks.
 
-            # process the Response object and initiate paging if necessary
-            try:
-                signals, paging = self._process_response(resp)
-                signals = self._discard_duplicate_posts(signals)
+        Defines how successful polling requests will be handled.
 
-                # add the include_query attribute if it is configured
-                if self.include_query and signals is not None:
-                    for s in signals:
-                        setattr(
-                            s, self.include_query, unquote(self.current_query)
-                        )
+        """
+        self._reset_retry_cycle()
 
-                if signals:
-                    self.notify_signals(signals)
+        signals, paging = self._process_response(resp)
+        signals = self._discard_duplicate_posts(signals)
 
-                if paging:
-                    self._paging()
-                else:
-                    if self.polling_interval.total_seconds() > 0:
-                        self._poll_job = self._poll_job or Job(
-                            self.poll,
-                            self.polling_interval,
-                            True
-                        )
-                    self._increment_idx()
-                    if self.queries:
-                        self._logger.debug(
-                            "Preparing to query for: %s" % self.current_query)
-
-            except Exception as e:
-                self._logger.exception(e)
-                self._logger.error(
-                    "Error while processing polling response: %s" % e
+        # add the include_query attribute if it is configured
+        if self.include_query and signals is not None:
+            for s in signals:
+                setattr(
+                    s, self.include_query, unquote(self.current_query)
                 )
+                
+        if signals:
+            self.notify_signals(signals)
+
+        if paging:
+            self._paging()
+        else:
+            self._epilogue()
+
+    def _reset_retry_cycle(self):
+        """ This can be overridden in user-defined blocks.
+
+        Logic for cleaning up retry jobs and counters goes here.
+
+        """
+        # cancel the retry job if we were in a retry cycle
+        if self._retry_job is not None:
+            self._retry_job.cancel()
+            self._retry_job = None
+        self._retry_interval = self.retry_interval
+        # this poll was a success so reset the retry count
+        self._retry_count = 0
+
+    def _epilogue(self):
+        """ This can be overridden in user-defined blocks.
+
+        Defines behavior after a query has been fully processed,
+        when we are ready for the next query. That is, when paging
+        is done and retries are cleared. 
+
+        """
+        if self.polling_interval.total_seconds() > 0:
+            self._poll_job = self._poll_job or Job(
+                self.poll,
+                self.polling_interval,
+                True
+            )
+        self._increment_idx()
+        if self.queries:
+            self._logger.debug(
+                "Preparing to query for: %s" % self.current_query
+            )
 
     def _authenticate(self):
         """ This should be overridden in user-defined blocks.
@@ -217,7 +236,7 @@ class RESTPolling(Block):
         pass
 
     def _validate_response(self, resp):
-        """ This should be overridden in user-defined blocks.
+        """ This can be overridden in user-defined blocks.
 
         This is where we determine if a response is bad and we need a retry.
 
@@ -227,8 +246,8 @@ class RESTPolling(Block):
         """
         return resp.status_code == 200 or resp.status_code == 304
 
-    def _retry(self, resp, paging):
-        """ This should be overridden in user-defined blocks.
+    def _retry(self, paging):
+        """ 
 
         This is where we determine what to do on a bad poll response.
 
@@ -264,6 +283,8 @@ class RESTPolling(Block):
 
     def _paging(self):
         """ This can be overridden in user-defined blocks.
+
+        Logic for handling paging situations.
 
         """
         # cancel the polling job while we are paging
@@ -423,6 +444,26 @@ class RESTPolling(Block):
         exp = r"(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})"
         m = re.match(exp, date)
         return datetime(*[int(n) for n in m.groups(0)])
+
+    def _execute_request(self, url, headers):
+        """ Execute the request, accounting for possible errors
+
+        """
+        # Requests won't generally throw exceptions, but this provides a
+        # bit of convenience for the block developer.
+        resp = None
+        try:
+            if self._auth is not None:
+                resp = requests.get(url, headers=headers, auth=self._auth)
+            else:
+                resp = requests.get(url, headers=headers)
+        except Exception as e:
+            self._logger.error("GET request failed, details: %s" % e)
+
+            # Use the usual retry strategy to resolve the error
+            self._retry(paging)
+        finally:
+            return resp
 
     def _unix_time(self, dt):
         epoch = datetime.utcfromtimestamp(0)
