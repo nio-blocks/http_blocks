@@ -115,6 +115,7 @@ class TestRESTPolling(NIOBlockTestCase):
                 }
             }
         self.configure_block(blk, {
+            "log_level": "WARNING",
             "polling_interval": {
                 "seconds": 1
             },
