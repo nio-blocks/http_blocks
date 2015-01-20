@@ -115,7 +115,12 @@ class RESTPolling(Block):
         # Increment the number of lock waiters so we don't build up too many
         self._num_locks += 1
         with self._poll_lock:
-            self._locked_poll(paging)
+            if self._retry_job is None:
+                self._locked_poll(paging)
+            else:
+                self._logger.debug(
+                    "Skipping this poll since a retry job is scheduled"
+                )
         self._num_locks -= 1
 
     def _locked_poll(self, paging=False):
