@@ -115,12 +115,8 @@ class RESTPolling(Block):
         # Increment the number of lock waiters so we don't build up too many
         self._num_locks += 1
         with self._poll_lock:
-            if self._retry_job is None:
-                self._locked_poll(paging)
-            else:
-                self._logger.debug(
-                    "Skipping this poll since a retry job is scheduled"
-                )
+            self._locked_poll(paging)
+
         self._num_locks -= 1
 
     def _locked_poll(self, paging=False):
@@ -135,7 +131,7 @@ class RESTPolling(Block):
             "{}: {}".format("Paging" if paging else "Polling", url)
         )
 
-        resp = self._execute_request(url, headers)
+        resp = self._execute_request(url, headers, paging)
         if resp is None:
             return
 
@@ -450,7 +446,7 @@ class RESTPolling(Block):
         m = re.match(exp, date)
         return datetime(*[int(n) for n in m.groups(0)])
 
-    def _execute_request(self, url, headers):
+    def _execute_request(self, url, headers, paging):
         """ Execute the request, accounting for possible errors
 
         """
