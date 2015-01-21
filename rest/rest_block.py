@@ -150,7 +150,7 @@ class RESTPolling(Block):
                 self._on_success(resp, paging)
         except Exception as e:
             self._logger.exception(e)
-            self._logger.error(
+            self._logger.warning(
                 "Error processing polling response: {}: {}".format(
                     type(e).__name__, str(e))
             )
@@ -165,7 +165,7 @@ class RESTPolling(Block):
             status_code = resp.status_code
             resp = resp.json()
         finally:
-            self._logger.error(
+            self._logger.warning(
                 "Polling request of {} returned status {}: {}".format(
                     url, status_code, resp)
             )
@@ -463,7 +463,7 @@ class RESTPolling(Block):
             else:
                 resp = requests.get(url, headers=headers)
         except Exception as e:
-            self._logger.error("GET request failed, details: %s" % e)
+            self._logger.warning("GET request failed, details: %s" % e)
 
             # Use the usual retry strategy to resolve the error
             self._retry(paging)
