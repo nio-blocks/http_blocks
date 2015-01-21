@@ -135,6 +135,33 @@ class TestRESTPolling(NIOBlockTestCase):
 
         blk.stop()
 
+    @patch("requests.get", side_effect=Exception("mock get fail"))
+    @patch.object(RESTPolling, "_authenticate")
+    @patch.object(RESTPolling, "_retry_poll")
+    def test_get_error_retry(self, mock_retry, mock_auth, mock_get):
+        es = [Event(), Event()]
+        blk = RESTRetry(es)
+        self.configure_block(blk, {
+            "log_level": "DEBUG",
+            "polling_interval": {
+                "seconds": 1
+            },
+            "retry_interval": {
+                "seconds": 1
+            },
+            "queries": [
+                "foobar"
+            ]
+        })
+        blk.start()
+        es[1].wait(2)
+
+        self.assertEqual(mock_auth.call_count, 2)
+        self.assertEqual(mock_retry.call_count, 1)
+        self.assertEqual(mock_get.call_count, 1)
+
+        blk.stop()
+
     @patch("requests.get")
     @patch.object(RESTPolling, "_process_response")
     @patch.object(RESTPolling, "_prepare_url")
