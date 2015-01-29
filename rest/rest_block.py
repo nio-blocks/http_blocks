@@ -33,6 +33,7 @@ class RESTPolling(Block):
         self._n_queries = 0
         self._url = None
         self._paging_url = None
+        self._page_num = 1
         self._idx = 0
         self._poll_job = None
         self._retry_job = None
@@ -136,10 +137,13 @@ class RESTPolling(Block):
     def _locked_poll(self, paging=False):
         """ Execute the poll, while being assured that resources are locked """
 
+        if not paging:
+            # This is the first page of a new query.
+            self._recent_posts[self._idx] = {}
+            self.page_num = 1
+
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
-        if not paging:
-            self._recent_posts[self._idx] = {}
 
         self._logger.debug(
             "{}: {}".format("Paging" if paging else "Polling", url)
@@ -207,6 +211,7 @@ class RESTPolling(Block):
             self.notify_signals(signals)
 
         if paging:
+            self.page_num += 1
             self._paging()
         else:
             self._epilogue()
@@ -512,6 +517,14 @@ class RESTPolling(Block):
     @paging_url.setter
     def paging_url(self, url):
         self._paging_url = url
+
+    @property
+    def page_num(self):
+        return self._page_num
+
+    @page_num.setter
+    def page_num(self, num):
+        self._page_num = num
 
     @property
     def etag(self):
