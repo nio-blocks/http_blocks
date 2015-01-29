@@ -174,6 +174,10 @@ class RESTPolling(Block):
         try:
             status_code = resp.status_code
             resp = resp.json()
+        except:
+            # Response is not json.
+            # This is fine. We're just logging a warning about the resp.
+            pass
         finally:
             self._logger.warning(
                 "Polling request of {} returned status {}: {}".format(
@@ -198,7 +202,7 @@ class RESTPolling(Block):
                 setattr(
                     s, self.include_query, unquote(self.current_query)
                 )
-                
+
         if signals:
             self.notify_signals(signals)
 
@@ -226,7 +230,7 @@ class RESTPolling(Block):
 
         Defines behavior after a query has been fully processed,
         when we are ready for the next query. That is, when paging
-        is done and retries are cleared. 
+        is done and retries are cleared.
 
         """
         if self.polling_interval.total_seconds() > 0:
@@ -262,7 +266,7 @@ class RESTPolling(Block):
         return resp.status_code == 200 or resp.status_code == 304
 
     def _retry(self, paging):
-        """ 
+        """
 
         This is where we determine what to do on a bad poll response.
 
