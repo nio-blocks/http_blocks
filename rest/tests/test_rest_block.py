@@ -215,3 +215,12 @@ class TestRESTPolling(NIOBlockTestCase):
         self.assertEqual(mock_poll.call_count, 2)
         self.assertEqual(mock_get.call_count, 0)
         blk.stop()
+
+    def test_resp_on_failure(self):
+        blk = RESTPolling()
+        blk._retry = Mock()
+        r = Mock()
+        r.json = Exception()
+        self.assertFalse(blk._retry.called)
+        blk._on_failure(r, paging=False, url='the_url')
+        self.assertTrue(blk._retry.called)
