@@ -86,10 +86,17 @@ class RESTPolling(Block):
             self._retry_job.cancel()
 
     def process_signals(self, signals):
-        for signal in signals:
-            self.poll()
+        if self._retry_job is None:
+            for signal in signals:
+                self.poll()
+        else:
+            self._logger.debug(
+                "A 'retry' is currently scheduled. "
+                "Ignoring incoming signals."
+            )
 
-    def poll(self, paging=False):
+
+    def poll(self, paging=False, in_retry=False):
         """ Called from user-defined block. Assumes that self.url contains
         the fully-formed endpoint intended for polling.
 
@@ -97,6 +104,7 @@ class RESTPolling(Block):
 
         Args:
             paging (bool): Are we paging?
+            in_retry (bool): was poll called form a retry_job
 
         Returns:
             None
@@ -115,7 +123,13 @@ class RESTPolling(Block):
         # Increment the number of lock waiters so we don't build up too many
         self._num_locks += 1
         with self._poll_lock:
-            self._locked_poll(paging)
+            if self._retry_job is None or in_retry:
+                self._locked_poll(paging)
+            else:
+                self._logger.debug(
+                    "A 'retry' is already scheduled. "
+                    "Skipping this poll."
+                )
 
         self._num_locks -= 1
 
@@ -320,7 +334,8 @@ class RESTPolling(Block):
                 self.poll,
                 self._retry_interval,
                 False,
-                paging=paging
+                paging=paging,
+                in_retry=True
             )
             self._update_retry_interval()
         else:
