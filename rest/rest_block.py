@@ -137,12 +137,13 @@ class RESTPolling(Block):
     def _locked_poll(self, paging=False):
         """ Execute the poll, while being assured that resources are locked """
 
-        headers = self._prepare_url(paging)
-        url = self.paging_url or self.url
         if not paging:
             # This is the first page of a new query.
             self._recent_posts[self._idx] = {}
             self.page_num = 1
+
+        headers = self._prepare_url(paging)
+        url = self.paging_url or self.url
 
         self._logger.debug(
             "{}: {}".format("Paging" if paging else "Polling", url)
