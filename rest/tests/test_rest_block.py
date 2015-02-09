@@ -24,10 +24,10 @@ class MultiQueryREST(RESTPolling):
         self._poll_event = event
 
     def poll(self, paging=False):
+        super().poll(paging)
         self._num_polls += 1
         if self._num_polls == 2:
             self._poll_event.set()
-        super().poll(paging)
 
     def _get_post_id(self, signal):
         return signal._id
@@ -176,7 +176,6 @@ class TestRESTPolling(NIOBlockTestCase):
 
         self.assert_num_signals_notified(9, blk)
         self.assertEqual(blk.page_num, 2)
-        blk.stop()
 
         blk.stop()
 
