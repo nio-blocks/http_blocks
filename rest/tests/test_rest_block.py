@@ -65,7 +65,7 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.start()
         e.wait(2)
         mock_poll.assert_called_once_with(False)
-        mock_auth.assert_called_once()
+        self.assertEqual(mock_auth.call_count, 1)
 
         blk.stop()
 
@@ -93,8 +93,8 @@ class TestRESTPolling(NIOBlockTestCase):
         e.wait(2)
 
         mock_prep.assert_called_once_with(False)
-        mock_get.assert_called_once()
-        mock_proc.assert_called_once()
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(mock_proc.call_count, 1)
 
         blk.stop()
 
@@ -292,7 +292,7 @@ class TestRESTPolling(NIOBlockTestCase):
         blk.start()
         e.wait(2)
         blk.process_signals([Signal()])
-        mock_auth.assert_called_once()
+        self.assertEqual(mock_auth.call_count, 1)
         self.assertEqual(mock_poll.call_count, 2)
         self.assertEqual(mock_get.call_count, 0)
         blk.stop()
