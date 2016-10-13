@@ -97,7 +97,6 @@ class RESTPolling(Block):
                 "Ignoring incoming signals."
             )
 
-
     def poll(self, paging=False, in_retry=False):
         """ Called from user-defined block. Assumes that self.url contains
         the fully-formed endpoint intended for polling.
@@ -199,7 +198,9 @@ class RESTPolling(Block):
         self._reset_retry_cycle()
 
         signals, paging = self._process_response(resp)
+        self.logger.debug('signals pre-remove-duplicates: %s' % signals)
         signals = self._discard_duplicate_posts(signals)
+        self.logger.debug('signals post-remove-duplicates: %s' % signals)
 
         # add the include_query attribute if it is configured
         if self.include_query() and signals is not None:
@@ -477,6 +478,8 @@ class RESTPolling(Block):
         """
         # Requests won't generally throw exceptions, but this provides a
         # bit of convenience for the block developer.
+        self.logger.debug('executing GET request with: url: %s, headers: %s, '
+                          'paging: %s' % (url, headers, paging))
         resp = None
         try:
             if self._auth is not None:
