@@ -353,7 +353,7 @@ class RESTPolling(Block):
             self.logger.error("Out of retries. "
                                "Aborting and changing status to Error.")
             status_signal = BlockStatusSignal(
-                BlockStatus.error, 'Out of retries.')
+                RunnerStatus.error, 'Out of retries.')
 
             # Leaving source for backwards compatibility
             # In the future, you will know that a status signal is a block
