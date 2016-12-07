@@ -2,19 +2,19 @@ import requests
 import re
 from datetime import datetime
 from urllib.request import quote, unquote
-from nio.common.block.base import Block
-from nio.metadata.properties.timedelta import TimeDeltaProperty
-from nio.metadata.properties.list import ListProperty
-from nio.metadata.properties.int import IntProperty
-from nio.metadata.properties.string import StringProperty
+from nio.block.base import Block
+from nio.properties.timedelta import TimeDeltaProperty
+from nio.properties.list import ListProperty
+from nio.properties.int import IntProperty
+from nio.properties.string import StringProperty
 from nio.modules.scheduler import Job
-from nio.modules.threading import Lock, spawn
-from nio.common.signal.status import BlockStatusSignal
-from nio.common.block.controller import BlockStatus
-from nio.common.versioning.dependency import DependsOn
+from threading import Lock
+from nio.util.threading.spawn import spawn
+from nio.signal.status import BlockStatusSignal
+from nio.util.runner import RunnerStatus
+from nio.types import StringType
 
 
-@DependsOn("nio.modules.communication", "1.0.0")
 class RESTPolling(Block):
 
     """ A base class for blocks that poll restful web services.
@@ -24,8 +24,9 @@ class RESTPolling(Block):
                                          default={"seconds": 20})
     retry_interval = TimeDeltaProperty(title='Retry Interval',
                                        default={"seconds": 60})
-    queries = ListProperty(str, title='Query Strings')
-    include_query = StringProperty(title='Include Query Field', allow_none=True)
+    queries = ListProperty(StringType, title='Query Strings', default=[])
+    include_query = StringProperty(title='Include Query Field',
+                                   allow_none=True)
     retry_limit = IntProperty(title='Retry Limit', default=3)
 
     def __init__(self):
@@ -59,8 +60,8 @@ class RESTPolling(Block):
     def configure(self, context):
         super().configure(context)
         self._authenticate()
-        self._retry_interval = self.retry_interval
-        self._n_queries = len(self.queries)
+        self._retry_interval = self.retry_interval()
+        self._n_queries = len(self.queries())
         self._etags *= self._n_queries
         self._modifieds *= self._n_queries
         self._prev_freshest *= self._n_queries
@@ -69,15 +70,15 @@ class RESTPolling(Block):
 
     def start(self):
         super().start()
-        if self.polling_interval.total_seconds() > 0:
+        if self.polling_interval().total_seconds() > 0:
             self._poll_job = Job(
                 self.poll,
-                self.polling_interval,
+                self.polling_interval(),
                 True
             )
             spawn(self.poll)
         else:
-            self._logger.info("No poll job")
+            self.logger.info("No poll job")
 
     def stop(self):
         super().stop()
@@ -91,11 +92,10 @@ class RESTPolling(Block):
             for signal in signals:
                 self.poll()
         else:
-            self._logger.debug(
+            self.logger.debug(
                 "A 'retry' is currently scheduled. "
                 "Ignoring incoming signals."
             )
-
 
     def poll(self, paging=False, in_retry=False):
         """ Called from user-defined block. Assumes that self.url contains
@@ -115,7 +115,7 @@ class RESTPolling(Block):
             return
 
         if self._num_locks >= self._max_locks:
-            self._logger.warning(
+            self.logger.warning(
                 "Currently {} locks waiting to be acquired. This is more than "
                 "the max of {}. Ignoring poll".format(
                     self._num_locks, self._max_locks))
@@ -127,7 +127,7 @@ class RESTPolling(Block):
             if self._retry_job is None or in_retry:
                 self._locked_poll(paging)
             else:
-                self._logger.debug(
+                self.logger.debug(
                     "A 'retry' is already scheduled. "
                     "Skipping this poll."
                 )
@@ -145,7 +145,7 @@ class RESTPolling(Block):
         headers = self._prepare_url(paging)
         url = self.paging_url or self.url
 
-        self._logger.debug(
+        self.logger.debug(
             "{}: {}".format("Paging" if paging else "Polling", url)
         )
 
@@ -163,8 +163,8 @@ class RESTPolling(Block):
             else:
                 self._on_success(resp, paging)
         except Exception as e:
-            self._logger.exception(e)
-            self._logger.warning(
+            self.logger.exception(e)
+            self.logger.warning(
                 "Error processing polling response: {}: {}".format(
                     type(e).__name__, str(e))
             )
@@ -183,7 +183,7 @@ class RESTPolling(Block):
             # This is fine. We're just logging a warning about the resp.
             pass
         finally:
-            self._logger.warning(
+            self.logger.warning(
                 "Polling request of {} returned status {}: {}".format(
                     url, status_code, resp)
             )
@@ -198,13 +198,15 @@ class RESTPolling(Block):
         self._reset_retry_cycle()
 
         signals, paging = self._process_response(resp)
+        self.logger.debug('signals pre-remove-duplicates: %s' % signals)
         signals = self._discard_duplicate_posts(signals)
+        self.logger.debug('signals post-remove-duplicates: %s' % signals)
 
         # add the include_query attribute if it is configured
-        if self.include_query and signals is not None:
+        if self.include_query() and signals is not None:
             for s in signals:
                 setattr(
-                    s, self.include_query, unquote(self.current_query)
+                    s, self.include_query(), unquote(self.current_query)
                 )
 
         if signals:
@@ -226,7 +228,7 @@ class RESTPolling(Block):
         if self._retry_job is not None:
             self._retry_job.cancel()
             self._retry_job = None
-        self._retry_interval = self.retry_interval
+        self._retry_interval = self.retry_interval()
         # this poll was a success so reset the retry count
         self._retry_count = 0
 
@@ -238,15 +240,15 @@ class RESTPolling(Block):
         is done and retries are cleared.
 
         """
-        if self.polling_interval.total_seconds() > 0:
+        if self.polling_interval().total_seconds() > 0:
             self._poll_job = self._poll_job or Job(
                 self.poll,
-                self.polling_interval,
+                self.polling_interval(),
                 True
             )
         self._increment_idx()
-        if self.queries:
-            self._logger.debug(
+        if self.queries():
+            self.logger.debug(
                 "Preparing to query for: %s" % self.current_query
             )
 
@@ -276,9 +278,9 @@ class RESTPolling(Block):
         This is where we determine what to do on a bad poll response.
 
         """
-        self._logger.debug("Attempting to re-authenticate.")
+        self.logger.debug("Attempting to re-authenticate.")
         self._authenticate()
-        self._logger.debug("Attempting to retry poll.")
+        self.logger.debug("Attempting to retry poll.")
         self._retry_poll(paging)
 
     def _prepare_url(self, paging):
@@ -324,7 +326,7 @@ class RESTPolling(Block):
         Implement your retry strategy here. Exponential backoff? War?
 
         """
-        self._logger.debug("Updating retry interval from {} to {}".
+        self.logger.debug("Updating retry interval from {} to {}".
                            format(self._retry_interval,
                                   self._retry_interval * 2))
         self._retry_interval *= 2
@@ -336,8 +338,8 @@ class RESTPolling(Block):
         if self._poll_job is not None:
             self._poll_job.cancel()
             self._poll_job = None
-        if self._retry_count < self.retry_limit:
-            self._logger.debug("Retrying the polling job...")
+        if self._retry_count < self.retry_limit():
+            self.logger.debug("Retrying the polling job...")
             self._retry_count += 1
             self._retry_job = Job(
                 self.poll,
@@ -348,10 +350,10 @@ class RESTPolling(Block):
             )
             self._update_retry_interval()
         else:
-            self._logger.error("Out of retries. "
+            self.logger.error("Out of retries. "
                                "Aborting and changing status to Error.")
             status_signal = BlockStatusSignal(
-                BlockStatus.error, 'Out of retries.')
+                RunnerStatus.error, 'Out of retries.')
 
             # Leaving source for backwards compatibility
             # In the future, you will know that a status signal is a block
@@ -476,6 +478,8 @@ class RESTPolling(Block):
         """
         # Requests won't generally throw exceptions, but this provides a
         # bit of convenience for the block developer.
+        self.logger.debug('executing GET request with: url: %s, headers: %s, '
+                          'paging: %s' % (url, headers, paging))
         resp = None
         try:
             if self._auth is not None:
@@ -483,7 +487,7 @@ class RESTPolling(Block):
             else:
                 resp = requests.get(url, headers=headers)
         except Exception as e:
-            self._logger.warning("GET request failed, details: %s" % e)
+            self.logger.warning("GET request failed, details: %s" % e)
 
             # Use the usual retry strategy to resolve the error
             self._retry(paging)
@@ -500,7 +504,7 @@ class RESTPolling(Block):
 
     @property
     def current_query(self):
-        return quote(self.queries[self._idx])
+        return quote(self.queries()[self._idx])
 
     @property
     def url(self):
