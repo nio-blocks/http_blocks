@@ -2,10 +2,12 @@ from ..rest_block import RESTPolling
 from unittest.mock import patch, Mock
 from requests import Response
 from nio.testing.block_test_case import NIOBlockTestCase
+from nio.util.discovery import not_discoverable
 from threading import Event
 from nio.signal.base import Signal
 
 
+@not_discoverable
 class RESTBlock(RESTPolling):
 
     def __init__(self, event):
@@ -17,6 +19,7 @@ class RESTBlock(RESTPolling):
         self._poll_event.set()
 
 
+@not_discoverable
 class MultiQueryREST(RESTPolling):
     def __init__(self, event):
         super().__init__()
@@ -32,6 +35,7 @@ class MultiQueryREST(RESTPolling):
     def _get_post_id(self, signal):
         return signal._id
 
+@not_discoverable
 class RESTRetry(RESTPolling):
     def __init__(self, events):
         super().__init__()

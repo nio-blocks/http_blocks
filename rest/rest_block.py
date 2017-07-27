@@ -12,9 +12,11 @@ from threading import Lock
 from nio.util.threading.spawn import spawn
 from nio.signal.status import BlockStatusSignal
 from nio.util.runner import RunnerStatus
+from nio.util.discovery import not_discoverable
 from nio.types import StringType
 
 
+@not_discoverable
 class RESTPolling(Block):
 
     """ A base class for blocks that poll restful web services.
