@@ -1,7 +1,5 @@
-HTTP_Blocks
-=======
-
-Blocks that perform various actions regarding http communication.
+rest_polling
+============
 
 -   [RESTPolling](https://github.com/nio-blocks/http_blocks#RESTPolling)
 
