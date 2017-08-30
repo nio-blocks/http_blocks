@@ -1,14 +1,13 @@
-import requests
-import re
 from datetime import datetime
-from urllib.request import quote, unquote
-from nio.block.base import Block
-from nio.properties.timedelta import TimeDeltaProperty
-from nio.properties.list import ListProperty
-from nio.properties.int import IntProperty
-from nio.properties.string import StringProperty
-from nio.modules.scheduler import Job
+import re
+import requests
 from threading import Lock
+from urllib.request import quote, unquote
+
+from nio.block.base import Block
+from nio.properties import \
+    TimeDeltaProperty, ListProperty, IntProperty, StringProperty
+from nio.modules.scheduler import Job
 from nio.util.threading.spawn import spawn
 from nio.signal.status import BlockStatusSignal
 from nio.util.runner import RunnerStatus
