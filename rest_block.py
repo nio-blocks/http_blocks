@@ -328,8 +328,8 @@ class RESTPolling(Block):
         Implement your retry strategy here. Exponential backoff? War?
 
         """
-        self.logger.debug("Updating retry interval from {} to {}".
-                           format(self._retry_interval,
+        self.logger.debug("Updating retry interval from {} to {}"
+                          .format(self._retry_interval,
                                   self._retry_interval * 2))
         self._retry_interval *= 2
 
@@ -353,7 +353,7 @@ class RESTPolling(Block):
             self._update_retry_interval()
         else:
             self.logger.error("Out of retries. "
-                               "Aborting and changing status to Error.")
+                              "Aborting and changing status to Error.")
             status_signal = BlockStatusSignal(
                 RunnerStatus.error, 'Out of retries.')
 

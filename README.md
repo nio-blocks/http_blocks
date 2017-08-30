@@ -1,10 +1,3 @@
-rest_polling
-============
-
--   [RESTPolling](https://github.com/nio-blocks/http_blocks#RESTPolling)
-
-***
-
 RESTPolling
 ===========
 
@@ -31,7 +24,3 @@ None
 Input
 -------
 None
-
-Output
----------
-Varies depending on implementation of the base class. `_process_response(self, resp)` is to be implemented to return the signals that will be notified.

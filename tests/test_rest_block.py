@@ -35,6 +35,7 @@ class MultiQueryREST(RESTPolling):
     def _get_post_id(self, signal):
         return signal._id
 
+
 @not_discoverable
 class RESTRetry(RESTPolling):
     def __init__(self, events):
@@ -47,6 +48,7 @@ class RESTRetry(RESTPolling):
             return
         self._poll_events = self._poll_events[1:]
         super().poll(paging)
+
 
 class TestRESTPolling(NIOBlockTestCase):
 
