@@ -1,14 +1,13 @@
-import requests
-import re
 from datetime import datetime
-from urllib.request import quote, unquote
-from nio.block.base import Block
-from nio.properties.timedelta import TimeDeltaProperty
-from nio.properties.list import ListProperty
-from nio.properties.int import IntProperty
-from nio.properties.string import StringProperty
-from nio.modules.scheduler import Job
+import re
+import requests
 from threading import Lock
+from urllib.request import quote, unquote
+
+from nio.block.base import Block
+from nio.properties import \
+    TimeDeltaProperty, ListProperty, IntProperty, StringProperty
+from nio.modules.scheduler import Job
 from nio.util.threading.spawn import spawn
 from nio.signal.status import BlockStatusSignal
 from nio.util.runner import RunnerStatus
@@ -328,8 +327,8 @@ class RESTPolling(Block):
         Implement your retry strategy here. Exponential backoff? War?
 
         """
-        self.logger.debug("Updating retry interval from {} to {}".
-                           format(self._retry_interval,
+        self.logger.debug("Updating retry interval from {} to {}"
+                          .format(self._retry_interval,
                                   self._retry_interval * 2))
         self._retry_interval *= 2
 
@@ -353,7 +352,7 @@ class RESTPolling(Block):
             self._update_retry_interval()
         else:
             self.logger.error("Out of retries. "
-                               "Aborting and changing status to Error.")
+                              "Aborting and changing status to Error.")
             status_signal = BlockStatusSignal(
                 RunnerStatus.error, 'Out of retries.')
 
