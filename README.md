@@ -6,10 +6,11 @@ Used as a base class for any block that needs to do polling of a URL. *Not a sta
 Properties
 --------------
 
--   **queries**: List of queries.
--   **polling_interval**: How often url is polled. When using more than one query. Each query will be polled at a period equal to the `polling_interval` times the number of queries.
--   **retry_interval**: When a url request fails, how long to wait before attempting to try again.
--   **retry_limit**: When a url request fails, number of times to attempt a retry before giving up.
+-   **polling_interval**: How often url is polled. A new request will be made for every member of `queries` at the `polling_interval`.
+-   **retry_interval**: When a request fails, wait this many seconds before attempting a retry.
+-   **retry_limit**: The maximum number of retries to attempt for each request.
+-   **queries**: List of endpoints to poll.
+-   **include_query**: If not `None`, the endpoint for this request, from `queries`, will be stored in this attribute of the outgoing signal.
 
 
 Dependencies
@@ -19,8 +20,4 @@ Dependencies
 
 Commands
 ----------------
-None
-
-Input
--------
 None
